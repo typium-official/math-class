@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>로그 곡선의 교점 개수</title>
+<style>
+  :root { --bg:#faf9f5; --card:#f0eee6; --text:#1f1e1d; --sub:#6b6a65; --line:#8a8983; --grid:#e3e1d8; --border:#c9c7bd; --c1:#378ADD; --cl:#D85A30; --cr:#1D9E75; --on:#1f1e1d; --onbg:#f5c4b3; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#1f1e1d; --card:#2b2a28; --text:#f0eee6; --sub:#b0aea5; --line:#8a8983; --grid:#34332f; --border:#55534e; --on:#f0eee6; --onbg:#712b13; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:"Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif; line-height:1.7; }
+  main { max-width:1100px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { font-size:22px; font-weight:600; margin:0 0 8px; }
+  h2 { font-size:17px; font-weight:600; margin:28px 0 6px; }
+  p { margin:6px 0; }
+  .sub { color:var(--sub); font-size:15px; }
+  svg { width:100%; height:auto; display:block; }
+  svg text { fill:var(--sub); font-size:12px; font-family:inherit; }
+  svg text.pt { font-size:14px; font-weight:700; }
+  @media (min-width:900px) { svg text { font-size:15px; } svg text.pt { font-size:18px; } .status { font-size:16px; } }
+  @media (max-width:600px) { button { padding:10px 12px; font-size:15px; } .controls input[type=range] { min-width:100%; order:5; height:32px; } .sticky .controls { gap:8px; } .card .v { font-size:18px; } }
+  .controls { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin:12px 0; }
+  .controls input[type=range] { flex:1; min-width:160px; accent-color:var(--cl); }
+  .sticky { position:sticky; top:0; background:var(--bg); padding:6px 0; z-index:2; border-bottom:1px solid var(--grid); }
+  button { font:inherit; font-size:14px; color:var(--text); background:transparent; border:1px solid var(--border); border-radius:8px; padding:6px 12px; cursor:pointer; }
+  button:hover { background:var(--card); }
+  button.sel { background:var(--card); border-color:var(--text); }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 8px; }
+  .chip { min-width:52px; text-align:center; padding:6px 4px; line-height:1.3; }
+  .chip b { display:block; font-size:15px; }
+  .chip span { font-size:12px; color:var(--sub); }
+  .chip.two { background:var(--onbg); border-color:var(--cl); }
+  .chip.two span { color:var(--on); }
+  .chip.cur { outline:2px solid var(--text); outline-offset:1px; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:12px 0; }
+  .card { background:var(--card); border-radius:8px; padding:12px 14px; }
+  .card .k { font-size:13px; color:var(--sub); }
+  .card .v { font-size:20px; font-weight:600; }
+  .legend { display:flex; flex-wrap:wrap; gap:6px 18px; font-size:13px; color:var(--sub); margin:4px 0 0; }
+  .legend i { display:inline-block; width:18px; height:3px; border-radius:2px; vertical-align:middle; margin-right:6px; }
+  .status { background:var(--card); border-radius:8px; padding:8px 12px; font-size:14px; margin:8px 0 0; }
+  .status b { font-weight:600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>로그 곡선의 교점 개수</h1>
+  <p class="sub">두 곡선 y = log<sub>n</sub>(x+1), y = | log<sub>n</sub>8x − 1 | 이 만나는 점의 개수가 2가 되도록 하는 2 이상의 모든 자연수 n의 값의 합은?</p>
+
+  <div class="sticky">
+    <div class="controls" style="margin:4px 0">
+      <button id="play">▶ n 키우기</button>
+      <label for="sl" style="font-size:14px;color:var(--sub)">n</label>
+      <input type="range" id="sl" min="2" max="12" step="0.05" value="4">
+      <span id="slo" style="font-size:18px;font-weight:600;min-width:52px;text-align:right">4</span>
+    </div>
+    <div class="controls" style="margin:4px 0">
+      <span style="font-size:14px;color:var(--sub)">보는 범위</span>
+      <button id="zf" class="sel">교점 따라가기</button>
+      <button id="z10">0 ~ 10</button>
+      <button id="z2">0 ~ 2</button>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="k">교점의 개수</div><div class="v" id="mc"></div></div>
+    <div class="card"><div class="k" style="color:var(--cl)">교점 A (접힌 부분)</div><div class="v" id="ml"></div></div>
+    <div class="card"><div class="k" style="color:var(--cr)">교점 B (오른쪽 부분)</div><div class="v" id="mr"></div></div>
+  </div>
+
+  <h2>두 곡선의 그래프</h2>
+  <svg id="g1" viewBox="0 0 680 400" role="img" aria-label="두 로그 곡선의 그래프"></svg>
+  <div class="legend">
+    <span><i style="background:var(--c1)"></i>y = log<sub>n</sub>(x+1)</span>
+    <span><i style="background:var(--cl)"></i>절댓값 곡선의 접힌 부분 (x &lt; n/8)</span>
+    <span><i style="background:var(--cr)"></i>절댓값 곡선의 오른쪽 부분 (x ≥ n/8)</span>
+  </div>
+  <div class="status" id="s1"></div>
+
+  <h2>진수끼리 비교</h2>
+  <svg id="g2" viewBox="0 0 680 400" role="img" aria-label="진수를 비교한 그래프"></svg>
+  <div class="legend">
+    <span><i style="background:var(--c1)"></i>y = x + 1</span>
+    <span><i style="background:var(--cl)"></i>y = n / 8x</span>
+    <span><i style="background:var(--cr)"></i>y = 8x / n</span>
+  </div>
+  <div class="status" id="s2"></div>
+
+  <h2>n이 커질 때 교점의 x좌표</h2>
+  <svg id="g3" viewBox="0 0 680 400" role="img" aria-label="n에 따른 교점의 x좌표"></svg>
+  <div class="legend">
+    <span><i style="background:var(--cl)"></i>교점 A의 x좌표</span>
+    <span><i style="background:var(--cr)"></i>교점 B의 x좌표 = n / (8 − n)</span>
+  </div>
+  <div class="status" id="s3"></div>
+
+  <h2>자연수 n별 교점의 개수</h2>
+  <div class="chips" id="chips"></div>
+  <p class="sub">교점이 2개인 n = 2, 3, 4, 5, 6, 7 → 합 27</p>
+</main>
+<script>
+(function(){
+var $=function(i){return document.getElementById(i)};
+var sl=$('sl'),mode='f';
+var L=50,R=650,T=24,B=360;
+function size(id){
+  var w=Math.max(280,Math.round($(id).clientWidth||680)),h=Math.max(260,Math.round(w<500?w*0.85:Math.min(w*0.56,window.innerHeight*0.68)));
+  $(id).setAttribute('viewBox','0 0 '+w+' '+h);
+  L=w<500?38:54;R=w-(w<500?26:30);B=h-40;
+}
+function fmt(v){return (Math.round(v*100)/100).toString()}
+function nice(r){var raw=r/8,p=Math.pow(10,Math.floor(Math.log(raw)/Math.LN10)),m=raw/p;return (m<1.5?1:m<3.5?2:m<7.5?5:10)*p}
+function build(id,c){
+  size(id);
+  var X=function(x){return L+(R-L)*(x-c.x0)/(c.x1-c.x0)},Y=function(y){return B-(B-T)*y/c.y1};
+  var xs=nice(c.x1-c.x0),ys=nice(c.y1),x,y;
+  var h='<defs><clipPath id="c'+id+'"><rect x="'+L+'" y="'+T+'" width="'+(R-L)+'" height="'+(B-T)+'"/></clipPath></defs>';
+  for(x=c.x0>0?Math.ceil(c.x0/xs)*xs:xs;x<=c.x1+1e-9;x+=xs){h+='<line x1="'+X(x)+'" y1="'+T+'" x2="'+X(x)+'" y2="'+B+'" stroke="var(--grid)"/><text x="'+X(x)+'" y="'+(B+18)+'" text-anchor="middle">'+fmt(x)+'</text>'}
+  for(y=ys;y<=c.y1+1e-9;y+=ys){h+='<line x1="'+L+'" y1="'+Y(y)+'" x2="'+R+'" y2="'+Y(y)+'" stroke="var(--grid)"/><text x="'+(L-8)+'" y="'+(Y(y)+4)+'" text-anchor="end">'+fmt(y)+'</text>'}
+  h+='<line x1="'+L+'" y1="'+B+'" x2="'+R+'" y2="'+B+'" stroke="var(--line)"/><line x1="'+L+'" y1="'+T+'" x2="'+L+'" y2="'+B+'" stroke="var(--line)"/>';
+  if(c.x0===0)h+='<text x="'+(L-8)+'" y="'+(B+18)+'" text-anchor="end">O</text>';
+  h+='<text x="'+(R+8)+'" y="'+(B+4)+'">'+c.xl+'</text><text x="4" y="'+(T-8)+'">'+c.yl+'</text>';
+  h+='<g clip-path="url(#c'+id+')">';
+  (c.vl||[]).forEach(function(v){if(v.x<c.x1&&v.x>c.x0)h+='<line x1="'+X(v.x)+'" y1="'+T+'" x2="'+X(v.x)+'" y2="'+B+'" stroke="'+(v.col||'var(--line)')+'" stroke-width="'+(v.w||1)+'" stroke-dasharray="4 4"/>'});
+  c.curves.forEach(function(k){
+    if(k.b<=k.a)return;
+    var d='',N=400;
+    for(var i=0;i<=N;i++){var x=k.a+(k.b-k.a)*i/N,y=Math.max(Math.min(k.f(x),c.y1*2),-c.y1);d+=(i?'L':'M')+X(x).toFixed(1)+' '+Y(y).toFixed(1)}
+    h+='<path d="'+d+'" fill="none" stroke="'+k.col+'" stroke-width="'+(k.w||2.5)+'" stroke-opacity="'+(k.o||1)+'" stroke-linejoin="round"/>';
+  });
+  var vis=c.pts.filter(function(p){return p.x<=c.x1&&p.x>=c.x0&&p.y<=c.y1});
+  vis.forEach(function(p){
+    if(c.drop)h+='<line x1="'+X(p.x)+'" y1="'+Y(p.y)+'" x2="'+X(p.x)+'" y2="'+B+'" stroke="'+p.col+'" stroke-dasharray="2 3"/>';
+    h+='<circle cx="'+X(p.x)+'" cy="'+Y(p.y)+'" r="'+(p.r||6)+'" fill="'+(p.fill||'var(--bg)')+'" stroke="'+p.col+'" stroke-width="2.5"/>';
+  });
+  h+='</g>';
+  vis.forEach(function(p){if(p.t)h+='<text class="pt" x="'+(X(p.x)+(p.dx||0))+'" y="'+(Y(p.y)+(p.dy||0))+'" text-anchor="'+(p.an||'middle')+'" style="fill:'+p.col+'">'+p.t+'</text>'});
+  (c.vl||[]).forEach(function(v){if(v.t&&v.x<c.x1&&v.x>c.x0)h+='<text x="'+(X(v.x)+6)+'" y="'+(T+12)+'">'+v.t+'</text>'});
+  $(id).innerHTML=h;
+}
+function isInt(n){return Math.abs(n-Math.round(n))<1e-6}
+function draw(){
+  var n=parseFloat(sl.value),ln=Math.log(n),m=n/8;
+  var lg=function(v){return Math.log(v)/ln};
+  var xl=(-2+Math.sqrt(4+2*n))/4,xr=n<8-1e-9?n/(8-n):null;
+  var xmax=mode==='10'?10:mode==='2'?2:(xr===null?100:Math.min(100,Math.max(4,xr*1.5)));
+  var e=xmax/4000;
+  var A={x:xl,y:lg(xl+1),col:'var(--cl)',t:'A',dy:-12},Bp=xr===null?null:{x:xr,y:lg(xr+1),col:'var(--cr)',t:'B',dx:10,dy:18,an:'start'};
+  var ym=Math.max(1.2,1.12*Math.max(lg(xmax+1),Math.abs(lg(8*xmax/n))));
+  build('g1',{x0:0,x1:xmax,y1:ym,xl:'x',yl:'y',drop:true,vl:[{x:m,t:'x = n/8'}],curves:[
+    {f:function(x){return lg(x+1)},a:0,b:xmax,col:'var(--c1)'},
+    {f:function(x){return -lg(8*x/n)},a:e,b:Math.min(m,xmax),col:'var(--cl)'},
+    {f:function(x){return lg(8*x/n)},a:m,b:xmax,col:'var(--cr)'}
+  ],pts:Bp?[A,Bp]:[A]});
+  var A2={x:xl,y:xl+1,col:'var(--cl)',t:'A',dy:-12},B2=xr===null?null:{x:xr,y:xr+1,col:'var(--cr)',t:'B',dx:10,dy:18,an:'start'};
+  build('g2',{x0:0,x1:xmax,y1:xmax<=2?4:xmax*1.25,xl:'x',yl:'y',drop:true,vl:[{x:m,t:'x = n/8'}],curves:[
+    {f:function(x){return n/(8*x)},a:e,b:xmax,col:'var(--cl)',w:1.5,o:0.3},
+    {f:function(x){return 8*x/n},a:0,b:xmax,col:'var(--cr)',w:1.5,o:0.3},
+    {f:function(x){return x+1},a:0,b:xmax,col:'var(--c1)'},
+    {f:function(x){return n/(8*x)},a:e,b:Math.min(m,xmax),col:'var(--cl)'},
+    {f:function(x){return 8*x/n},a:m,b:xmax,col:'var(--cr)'}
+  ],pts:B2?[A2,B2]:[A2]});
+  var p3=[];
+  for(var k=2;k<=12;k++){p3.push({x:k,y:(-2+Math.sqrt(4+2*k))/4,col:'var(--cl)',r:3});if(k<8)p3.push({x:k,y:k/(8-k),col:'var(--cr)',r:3})}
+  p3.push({x:n,y:xl,col:'var(--cl)',fill:'var(--cl)',t:'A',dx:10,dy:-8,an:'start'});
+  if(xr!==null)p3.push({x:n,y:xr,col:'var(--cr)',fill:'var(--cr)',t:'B',dx:-10,dy:-8,an:'end'});
+  build('g3',{x0:2,x1:12,y1:10,xl:'n',yl:'교점의 x',vl:[{x:8,t:'n = 8',col:'var(--text)',w:1.5},{x:n}],curves:[
+    {f:function(t){return (-2+Math.sqrt(4+2*t))/4},a:2,b:12,col:'var(--cl)'},
+    {f:function(t){return t/(8-t)},a:2,b:7.9999,col:'var(--cr)'}
+  ],pts:p3});
+  var gap=1-Math.log(8)/ln,sl8=8/n;
+  $('slo').textContent=isInt(n)?Math.round(n):n.toFixed(2);
+  $('mc').textContent=(xr===null?1:2)+'개';
+  $('ml').textContent='('+xl.toFixed(2)+', '+A.y.toFixed(2)+')';
+  $('mr').textContent=xr===null?'없음':('('+fmt(xr)+', '+Bp.y.toFixed(2)+')'+(xr>xmax?' 화면 밖':''));
+  var g=(gap<0?'−':'')+Math.abs(gap).toFixed(3);
+  $('s1').innerHTML='x가 커질수록 파랑과 초록의 간격(파랑 − 초록)은 <b>1 − log<sub>n</sub>8 = '+g+'</b> 에 가까워집니다. '+
+    (n<8-1e-9?'음수이므로 초록이 결국 파랑 위로 올라가고, 그 순간이 <b>교점 B</b>입니다.':
+     Math.abs(n-8)<1e-9?'간격이 0에 한없이 가까워지지만 0이 되지는 않습니다. 두 곡선은 <b>닿을 듯 만나지 않습니다.</b>':
+     '양수이므로 초록은 끝까지 파랑 아래에 있습니다. <b>교점 B가 없습니다.</b>');
+  $('s2').innerHTML='초록 직선의 기울기 <b>8/n = '+sl8.toFixed(3)+'</b> '+
+    (n<8-1e-9?'&gt; 1 → 기울기 1인 파랑 직선을 따라잡아 <b>x = n/(8−n) = '+fmt(xr)+'</b> 에서 만납니다.':
+     Math.abs(n-8)<1e-9?'= 1 → 파랑 직선과 <b>평행</b>이라 만나지 않습니다.':
+     '&lt; 1 → 파랑 직선보다 완만해서 점점 벌어집니다.')+' 주황 곡선은 n과 관계없이 파랑 직선과 <b>항상 한 번</b> 만납니다 (교점 A).';
+  $('s3').innerHTML=(n<8-1e-9?'교점 B의 x좌표는 <b>'+fmt(xr)+'</b>. n이 8에 가까워질수록 오른쪽으로 끝없이 달아납니다 (n = 7 → 7, n = 7.5 → 15, n = 7.9 → 79).':
+     '교점 B는 n = 8 을 지나는 순간 무한히 먼 곳으로 사라졌습니다.')+' 교점 A는 <b>'+xl.toFixed(2)+'</b> 로, n이 커져도 천천히 움직일 뿐 없어지지 않습니다.';
+  var c=$('chips').children;
+  for(var i=0;i<c.length;i++){c[i].classList.toggle('cur',Math.abs(parseInt(c[i].dataset.n,10)-n)<1e-6)}
+}
+for(var k=2;k<=12;k++){
+  var b=document.createElement('button');
+  b.className='chip'+(k<8?' two':'');b.dataset.n=k;
+  b.innerHTML='<b>n='+k+'</b><span>'+(k<8?2:1)+'개</span>';
+  b.addEventListener('click',function(){stop();sl.value=this.dataset.n;draw()});
+  $('chips').appendChild(b);
+}
+var raf=null,last=0;
+function stop(){if(raf){cancelAnimationFrame(raf);raf=null}$('play').textContent='▶ n 키우기'}
+function step(ts){
+  var dt=last?Math.min(ts-last,50):16;last=ts;
+  var n=parseFloat(sl.value),sp=Math.abs(n-8)<1?0.25:0.9;
+  n+=sp*dt/1000;
+  if(n>=12){sl.value=12;draw();stop();return}
+  sl.value=n;draw();raf=requestAnimationFrame(step);
+}
+$('play').addEventListener('click',function(){
+  if(raf){stop();return}
+  if(parseFloat(sl.value)>=12)sl.value=2;
+  last=0;$('play').textContent='❚❚ 멈추기';raf=requestAnimationFrame(step);
+});
+function setMode(v){mode=v;$('zf').classList.toggle('sel',v==='f');$('z10').classList.toggle('sel',v==='10');$('z2').classList.toggle('sel',v==='2');draw()}
+$('zf').addEventListener('click',function(){setMode('f')});
+$('z10').addEventListener('click',function(){setMode('10')});
+$('z2').addEventListener('click',function(){setMode('2')});
+sl.addEventListener('input',function(){stop();draw()});
+window.addEventListener('resize',draw);
+draw();
+})();
+</script>
+</body>
+</html>
